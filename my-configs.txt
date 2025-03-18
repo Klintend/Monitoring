@@ -1,0 +1,114 @@
+sudo nano /etc/systemd/system/prometheus.service
+/etc/systemd/system/thanos-sidecar.service
+/etc/systemd/system/thanos-store-gateway.service
+/etc/systemd/system/thanos-querier.service
+
+/var/lib/thanos/config/bucket.yml
+/opt/thanos/azure-storage-config.yaml
+
+type: Azure
+config:
+  storage_account: "myteststoaccuk"
+  container: "thanos-metrics"
+  msi_resource: "https://myteststoaccuk.blob.core.windows.net"
+
+
+
+/etc/systemd/system/prometheus.service
+
+[Unit]
+Description=Prometheus Monitoring System
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+User=prometheus
+Group=prometheus
+Type=simple
+ExecStart=/usr/bin/prometheus     --config.file=/etc/prometheus/prometheus.yml     --storage.tsdb.path=/var/lib/prometheus/     --web.
+listen-address=0.0.0.0:9090     --storage.tsdb.retention.time=90d     --web.enable-lifecycle     --storage.tsdb.min-block-duration=2h 
+    --storage.tsdb.max-block-duration=2h
+
+Restart=always
+RestartSec=5
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target
+
+
+/etc/systemd/system/thanos-sidecar.service
+
+[Unit]
+Description=Thanos Sidecar
+After=network.target
+
+[Service]
+User=thanos
+Group=thanos
+ExecStart=/usr/local/bin/thanos sidecar \
+  --tsdb.path=/var/lib/prometheus \
+  --prometheus.url http://localhost:9090 \
+  --grpc-address=0.0.0.0:10901 \
+  --http-address=0.0.0.0:10902 \
+  --objstore.config-file=/opt/thanos/azure-storage-config.yaml
+Restart=always
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target
+
+
+ls -ld /etc/systemd/system/prometheus.service
+
+-rw-r--r-- 1 root root 554 Mar  4 11:20 /etc/systemd/system/prometheus.service
+
+
+ls -ld /var/lib/prometheus
+
+drwxrwxr-x 14 thanos thanos 4096 Mar  5 19:28 /var/lib/prometheus
+
+
+ls -ld /etc/systemd/system/thanos-sidecar.service
+-rw-r--r-- 1 root root 413 Mar  4 20:32 /etc/systemd/system/thanos-sidecar.service
+
+
+/opt/thanos/azure-storage-config.yaml
+
+type: AZURE
+config:
+  storage_account: "myteststoaccuk"
+  container: "thanos-metrics"
+  msi_resource: "https://myteststoaccuk.blob.core.windows.net"
+
+
+cat /etc/passwd | grep thanos
+
+If no output appears, create the user:
+sudo useradd -r -s /bin/false thanos
+
+Then assign permissions to the Thanos binary:
+sudo chown -R thanos:thanos /usr/local/bin/thanos
+sudo chmod +x /usr/local/bin/thanos
+
+
+
+/etc/systemd/system/thanos-store-gateway.service
+
+[Unit]
+Description=Thanos Store Gateway
+After=network.target
+
+[Service]
+User=thanos
+Group=thanos
+ExecStart=/usr/local/bin/thanos store \
+  --data-dir=/var/lib/thanos/data/store \
+  --objstore.config-file=/var/lib/thanos/config/bucket.yml \
+  --grpc-address=0.0.0.0:10909 \
+  --http-address=0.0.0.0:10910
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+
