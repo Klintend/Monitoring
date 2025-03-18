@@ -1,0 +1,5 @@
+type: Azure
+config:
+  storage_account: "myteststoaccuk"
+  container: "thanos-metrics"
+  msi_resource: "https://myteststoaccuk.blob.core.windows.net"
